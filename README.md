@@ -1,90 +1,104 @@
 # Robotic-Arm
-Using Multi Axis Joystick
-#include <stdio.h>
-#include <stdlib.h>
+Using NODEMCU
+#include <ESP8266WiFi.h>
+#include <Servo.h>
 
-// Define limits for each joint
-#define BASE_MIN_ANGLE 0
-#define BASE_MAX_ANGLE 180
-#define SHOULDER_MIN_ANGLE 0
-#define SHOULDER_MAX_ANGLE 180
-#define ELBOW_MIN_ANGLE 0
-#define ELBOW_MAX_ANGLE 180
+// Define servo objects for each joint of the robotic arm
+Servo baseServo;    // Base rotation
+Servo shoulderServo; // Shoulder movement
+Servo elbowServo;    // Elbow movement
+Servo wristServo;    // Wrist movement
+Servo gripServo;    // Gripper
 
-// Structure to store the current position of the robotic arm
-typedef struct {
-    int baseAngle;
-    int shoulderAngle;
-    int elbowAngle;
-} RoboticArm;
+// Pins where the servos are connected
+const int basePin = D1;
+const int shoulderPin = D2;
+const int elbowPin = D3;
+const int wristPin = D4;
+const int gripPin = D5;
 
-// Function prototypes
-void initializeArm(RoboticArm *arm);
-void updateArmPosition(RoboticArm *arm, int xAxis, int yAxis, int zAxis);
-void displayArmPosition(const RoboticArm *arm);
-int clamp(int value, int min, int max);
+// WiFi credentials
+const char* ssid = "your_SSID";
+const char* password = "your_PASSWORD";
 
-// Main function
-int main() {
-    RoboticArm arm;
-    int xAxis, yAxis, zAxis;
-    
-    // Initialize the robotic arm to default position
-    initializeArm(&arm);
-    
-    while (1) {
-        // Simulate joystick input (Replace with actual joystick input in a real application)
-        printf("Enter joystick values (X, Y, Z): ");
-        scanf("%d %d %d", &xAxis, &yAxis, &zAxis);
-        
-        // Update the robotic arm position based on joystick input
-        updateArmPosition(&arm, xAxis, yAxis, zAxis);
-        
-        // Display the updated position of the robotic arm
-        displayArmPosition(&arm);
+void setup() {
+  // Initialize serial communication
+  Serial.begin(115200);
+
+  // Attach the servos to the corresponding pins
+  baseServo.attach(basePin);
+  shoulderServo.attach(shoulderPin);
+  elbowServo.attach(elbowPin);
+  wristServo.attach(wristPin);
+  gripServo.attach(gripPin);
+
+  // Initial positions of the servos
+  baseServo.write(90);     // Middle position for base
+  shoulderServo.write(90); // Middle position for shoulder
+  elbowServo.write(90);    // Middle position for elbow
+  wristServo.write(90);    // Middle position for wrist
+  gripServo.write(0);      // Gripper closed
+
+  // Connect to WiFi
+  connectToWiFi();
+}
+
+void loop() {
+  // Control robotic arm via serial commands or any input method
+  if (Serial.available()) {
+    char command = Serial.read();  // Read command from serial
+
+    // Example command-based control
+    switch (command) {
+      case 'w': // Move shoulder up
+        moveServo(shoulderServo, 10);  // Increase the angle
+        break;
+      case 's': // Move shoulder down
+        moveServo(shoulderServo, -10);  // Decrease the angle
+        break;
+      case 'a': // Rotate base left
+        moveServo(baseServo, -10);
+        break;
+      case 'd': // Rotate base right
+        moveServo(baseServo, 10);
+        break;
+      case 'e': // Extend elbow
+        moveServo(elbowServo, 10);
+        break;
+      case 'q': // Retract elbow
+        moveServo(elbowServo, -10);
+        break;
+      case 'r': // Move wrist up
+        moveServo(wristServo, 10);
+        break;
+      case 'f': // Move wrist down
+        moveServo(wristServo, -10);
+        break;
+      case 'g': // Open gripper
+        moveServo(gripServo, 10);
+        break;
+      case 'h': // Close gripper
+        moveServo(gripServo, -10);
+        break;
     }
-    
-    return 0;
+  }
 }
 
-// Function to initialize the robotic arm to a default position
-void initializeArm(RoboticArm *arm) {
-    arm->baseAngle = 90;      // Middle position
-    arm->shoulderAngle = 90;  // Middle position
-    arm->elbowAngle = 90;     // Middle position
+void moveServo(Servo &servo, int angleStep) {
+  int currentAngle = servo.read();  // Get the current position
+  int newAngle = constrain(currentAngle + angleStep, 0, 180);  // Calculate new angle within limits
+  servo.write(newAngle);  // Set the servo to the new angle
 }
 
-// Function to update the robotic arm position based on joystick input
-void updateArmPosition(RoboticArm *arm, int xAxis, int yAxis, int zAxis) {
-    // Update base angle using X-axis
-    arm->baseAngle += xAxis;
-    arm->baseAngle = clamp(arm->baseAngle, BASE_MIN_ANGLE, BASE_MAX_ANGLE);
-    
-    // Update shoulder angle using Y-axis
-    arm->shoulderAngle += yAxis;
-    arm->shoulderAngle = clamp(arm->shoulderAngle, SHOULDER_MIN_ANGLE, SHOULDER_MAX_ANGLE);
-    
-    // Update elbow angle using Z-axis
-    arm->elbowAngle += zAxis;
-    arm->elbowAngle = clamp(arm->elbowAngle, ELBOW_MIN_ANGLE, ELBOW_MAX_ANGLE);
+void connectToWiFi() {
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("WiFi connected!");
 }
 
-// Function to display the current position of the robotic arm
-void displayArmPosition(const RoboticArm *arm) {
-    printf("Robotic Arm Position:\n");
-    printf("Base Angle: %d degrees\n", arm->baseAngle);
-    printf("Shoulder Angle: %d degrees\n", arm->shoulderAngle);
-    printf("Elbow Angle: %d degrees\n", arm->elbowAngle);
-    printf("-------------------------------\n");
-}
-
-// Function to clamp a value between a minimum and maximum range
-int clamp(int value, int min, int max) {
-    if (value < min) {
-        return min;
-    } else if (value > max) {
-        return max;
-    } else {
-        return value;
-    }
-}
